@@ -53,10 +53,20 @@ This way, the auto-continue functionality will work immediately every time you o
     return el.offsetParent !== null;
   }
 
+  // log a timestamp into the log window
+  function addLogEntry() {
+    const ts = new Date().toLocaleString();
+    const entry = document.createElement('div');
+    entry.textContent = ts;
+    entry.style.cssText = 'padding:2px 4px; border-bottom:1px solid #444; font-size:12px; color:#0f0;';
+    logContainer.appendChild(entry);
+    // keep scroll at bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+
   // look for any <a.monaco-button.monaco-text-button> whose text is “Continue”
   function clickIfFound(){
     if (paused) return;
-
     const now = Date.now();
     if (now - lastClick < COOLDOWN_MS) return;
 
@@ -69,7 +79,8 @@ This way, the auto-continue functionality will work immediately every time you o
       if (btn.textContent.trim() === 'Continue') {
         btn.click();
         lastClick = now;
-        console.log('[auto] Clicked Continue');
+        console.log('[auto] Clicked Continue at', new Date().toISOString());
+        addLogEntry();
         break;
       }
     }
@@ -82,7 +93,6 @@ This way, the auto-continue functionality will work immediately every time you o
     observer   = new MutationObserver(clickIfFound);
     observer.observe(document.body, { childList: true, subtree: true });
     updateButtons();
-    console.log('[auto] started');
   }
   function pauseAuto(){
     if (!intervalId) return;
@@ -91,7 +101,6 @@ This way, the auto-continue functionality will work immediately every time you o
     intervalId = null;
     paused = true;
     updateButtons();
-    console.log('[auto] paused');
   }
   function stopAuto(){
     if (intervalId){
@@ -101,7 +110,6 @@ This way, the auto-continue functionality will work immediately every time you o
     }
     paused = false;
     updateButtons();
-    console.log('[auto] stopped');
   }
 
   function updateButtons(){
@@ -112,12 +120,13 @@ This way, the auto-continue functionality will work immediately every time you o
 
   function showHelp(){
     alert(
-`Auto-clicker controls:
+`Controls:
 • Start: begin auto-clicking  
 • Pause: temporarily halt  
-• Stop: fully disable (reset)  
+• Stop: fully disable  
 • ✕ : close panel  
-Drag the handle to move me around.`
+Drag handle to move.  
+Timestamps of each “Continue” appear below.`
     );
   }
 
@@ -133,7 +142,8 @@ Drag the handle to move me around.`
     'font-family:sans-serif',
     'font-size:13px',
     'z-index:9999',
-    'box-shadow:0 2px 6px rgba(0,0,0,0.4)'
+    'box-shadow:0 2px 6px rgba(0,0,0,0.4)',
+    'width:220px'
   ].join(';');
 
   // drag handle
@@ -147,19 +157,12 @@ Drag the handle to move me around.`
   ].join(';');
   panel.appendChild(dragHandle);
 
-  const startBtn = document.createElement('button');
-  const pauseBtn = document.createElement('button');
-  const stopBtn  = document.createElement('button');
-  const helpBtn  = document.createElement('button');
-  const closeBtn = document.createElement('button');
-
-  startBtn.textContent = 'Start';
-  pauseBtn.textContent = 'Pause';
-  stopBtn.textContent  = 'Stop';
-  helpBtn.textContent  = '?';
-  closeBtn.textContent = '✕';
-
-  [startBtn, pauseBtn, stopBtn, helpBtn, closeBtn].forEach(btn => {
+  // buttons row
+  const btns = ['Start','Pause','Stop','?','✕'];
+  const elements = {};
+  btns.forEach(label => {
+    const btn = document.createElement('button');
+    btn.textContent = label;
     btn.style.cssText = [
       'margin:0 4px 4px 0',
       'padding:4px 8px',
@@ -171,7 +174,9 @@ Drag the handle to move me around.`
       'font-size:13px'
     ].join(';');
     panel.appendChild(btn);
+    elements[label] = btn;
   });
+  const { Start: startBtn, Pause: pauseBtn, Stop: stopBtn, '?': helpBtn, '✕': closeBtn } = elements;
 
   startBtn.addEventListener('click', startAuto);
   pauseBtn.addEventListener('click', pauseAuto);
@@ -179,6 +184,20 @@ Drag the handle to move me around.`
   helpBtn .addEventListener('click', showHelp);
   closeBtn.addEventListener('click', () => panel.remove());
 
+  // log container
+  const logContainer = document.createElement('div');
+  logContainer.style.cssText = [
+    'background:#222',
+    'border:1px solid #444',
+    'height:100px',
+    'overflow-y:auto',
+    'padding:4px',
+    'border-radius:3px',
+    'font-family:monospace'
+  ].join(';');
+  panel.appendChild(logContainer);
+
+  // init drag
   function initDrag(e){
     e.preventDefault();
     const rect = panel.getBoundingClientRect();
@@ -186,10 +205,8 @@ Drag the handle to move me around.`
     panel.style.top    = rect.top   + 'px';
     panel.style.right  = 'auto';
     panel.style.bottom = 'auto';
-
     const startX = e.clientX, startY = e.clientY;
     const origX  = rect.left,   origY  = rect.top;
-
     function onMouseMove(e){
       panel.style.left = origX + (e.clientX - startX) + 'px';
       panel.style.top  = origY + (e.clientY - startY) + 'px';
@@ -198,7 +215,6 @@ Drag the handle to move me around.`
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup',   onMouseUp);
     }
-
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup',   onMouseUp);
   }
@@ -208,9 +224,10 @@ Drag the handle to move me around.`
   updateButtons();
   startAuto();
 
-  // allow console stop
+  // expose stop for console
   window.stopAutoContinue = stopAuto;
 })();
+
 ```
 
 ## Usage
